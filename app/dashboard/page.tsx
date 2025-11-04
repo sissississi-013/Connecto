@@ -3,21 +3,18 @@
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { VoiceAgent } from '@/components/voice/VoiceAgent'
-import { Mic, Send, Loader2, Menu, LogOut } from 'lucide-react'
+import { UnifiedChatInput } from '@/components/ui/UnifiedChatInput'
+import { Loader2, Sparkles, Users, TrendingUp, Zap } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [inputMode, setInputMode] = useState<'text' | 'voice'>('text')
-  const [request, setRequest] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
-  const [showSidebar, setShowSidebar] = useState(false)
 
   if (status === 'loading') {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-navy-950">
+      <div className="flex items-center justify-center min-h-screen bg-[#0A192F]">
         <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
       </div>
     )
@@ -28,22 +25,19 @@ export default function DashboardPage() {
     return null
   }
 
-  const handleSubmitRequest = async () => {
-    if (!request.trim() || isProcessing) return
-
+  const handleSubmitRequest = async (text: string) => {
     setIsProcessing(true)
 
     try {
       const response = await fetch('/api/connections/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: request }),
+        body: JSON.stringify({ query: text }),
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        // Store search ID and redirect to results
         router.push(`/connections?searchId=${data.searchId}`)
       } else {
         alert('Failed to process request')
@@ -56,186 +50,176 @@ export default function DashboardPage() {
     }
   }
 
-  const handleVoiceTranscript = (transcript: string) => {
-    setRequest(prev => prev + ' ' + transcript)
+  const handleFileUpload = (file: File) => {
+    console.log('File uploaded:', file.name)
+    // Handle resume upload if needed
   }
 
+  const exampleQueries = [
+    {
+      icon: Sparkles,
+      text: "Connect me with gametech VCs in the Bay Area",
+      color: "from-purple-500 to-pink-500"
+    },
+    {
+      icon: Users,
+      text: "Find healthcare consultants who went to UC Berkeley",
+      color: "from-blue-500 to-cyan-500"
+    },
+    {
+      icon: TrendingUp,
+      text: "Connect me with AI researchers at top tech companies",
+      color: "from-green-500 to-emerald-500"
+    },
+    {
+      icon: Zap,
+      text: "Find startup founders in fintech",
+      color: "from-orange-500 to-red-500"
+    },
+  ]
+
   return (
-    <div className="flex h-screen bg-navy-950">
-      {/* Sidebar */}
-      <div
-        className={`
-          fixed lg:static inset-y-0 left-0 z-50
-          w-64 bg-navy-900 border-r border-navy-700
-          transform transition-transform duration-200
-          ${showSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        `}
-      >
-        <div className="flex flex-col h-full p-4">
-          {/* Logo */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold gradient-text">CONNECTO</h2>
+    <div className="min-h-screen bg-[#0A192F] relative overflow-hidden">
+      {/* Ambient background effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
+      </div>
+
+      {/* Header */}
+      <header className="relative z-10 border-b border-white/10 backdrop-blur-xl bg-white/5">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center">
+              <span className="text-white font-bold text-xl">C</span>
+            </div>
+            <h1 className="text-2xl font-semibold gradient-text">CONNECTO</h1>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 space-y-2">
+          <nav className="flex items-center gap-2">
             <button
               onClick={() => router.push('/dashboard')}
-              className="w-full text-left px-4 py-2 rounded-lg bg-navy-800 text-white"
+              className="px-4 py-2 rounded-lg bg-white/10 text-gray-100 border border-white/20 font-medium"
             >
               Dashboard
             </button>
             <button
               onClick={() => router.push('/connections')}
-              className="w-full text-left px-4 py-2 rounded-lg hover:bg-navy-800 text-navy-300 hover:text-white transition-colors"
+              className="px-4 py-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-100 transition-all font-medium"
             >
               Connections
             </button>
             <button
               onClick={() => router.push('/crm')}
-              className="w-full text-left px-4 py-2 rounded-lg hover:bg-navy-800 text-navy-300 hover:text-white transition-colors"
+              className="px-4 py-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-100 transition-all font-medium"
             >
               CRM
             </button>
-          </nav>
 
-          {/* User Info */}
-          <div className="border-t border-navy-700 pt-4 space-y-2">
-            <div className="flex items-center gap-3 px-4 py-2">
+            {/* User menu */}
+            <div className="ml-4 pl-4 border-l border-white/10 flex items-center gap-3">
               {session.user?.image && (
                 <img
                   src={session.user.image}
                   alt={session.user.name || ''}
-                  className="w-8 h-8 rounded-full"
+                  className="w-8 h-8 rounded-full ring-2 ring-white/20"
                 />
               )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-white truncate">{session.user?.name}</p>
-                <p className="text-xs text-navy-400 truncate">{session.user?.email}</p>
-              </div>
+              <button
+                onClick={() => signOut()}
+                className="text-sm text-gray-400 hover:text-gray-100 transition-colors"
+              >
+                Sign Out
+              </button>
             </div>
-            <button
-              onClick={() => signOut()}
-              className="w-full flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-navy-800 text-navy-400 hover:text-red-400 transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </button>
-          </div>
+          </nav>
         </div>
-      </div>
+      </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="lg:hidden flex items-center gap-4 p-4 border-b border-navy-700">
-          <button
-            onClick={() => setShowSidebar(!showSidebar)}
-            className="text-navy-300 hover:text-white"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <h1 className="text-xl font-bold gradient-text">CONNECTO</h1>
-        </header>
+      <main className="relative z-10 flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-6 py-12">
+        <div className="w-full max-w-5xl space-y-12">
+          {/* Hero Section */}
+          <div className="text-center space-y-4 mb-8">
+            <h2 className="text-5xl md:text-6xl font-bold text-gray-100 tracking-tight">
+              Your AI Networking
+              <span className="gradient-text"> Agent</span>
+            </h2>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+              Automate connections, personalize outreach, and grow your network intelligently
+            </p>
+          </div>
 
-        {/* Main Area */}
-        <main className="flex-1 flex flex-col items-center justify-center p-6 overflow-auto">
-          <div className="w-full max-w-4xl space-y-8">
-            {/* Voice Agent (when in voice mode) */}
-            {inputMode === 'voice' && (
-              <div className="flex justify-center">
-                <VoiceAgent
-                  onTranscript={handleVoiceTranscript}
-                  prompt="How can I help you with networking today?"
-                />
-              </div>
-            )}
+          {/* Unified Chat Input */}
+          <div className="relative">
+            {/* Glow effect behind input */}
+            <div className="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full scale-110 opacity-30" />
 
-            {/* Welcome Message */}
-            <div className="text-center space-y-4">
-              <h1 className="text-4xl font-bold text-white">
-                What would you like to do today?
-              </h1>
-              <p className="text-navy-400 text-lg">
-                Type or speak your networking request
-              </p>
-            </div>
+            <UnifiedChatInput
+              onSubmit={handleSubmitRequest}
+              onFileUpload={handleFileUpload}
+              placeholder="Ask to connect with..."
+              isProcessing={isProcessing}
+            />
+          </div>
 
-            {/* Examples */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                'Connect me with gametech VCs in the Bay Area',
-                'Find healthcare consultants who went to UC Berkeley',
-                'Connect me with the hosts of this hackathon',
-                'Find AI researchers at top tech companies',
-              ].map((example, i) => (
+          {/* Example Queries */}
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500 text-center">Try asking:</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {exampleQueries.map((example, i) => (
                 <button
                   key={i}
-                  onClick={() => setRequest(example)}
-                  className="card text-left hover:bg-navy-800 transition-colors"
+                  onClick={() => handleSubmitRequest(example.text)}
+                  disabled={isProcessing}
+                  className="glass-card p-4 text-left hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed group"
                 >
-                  <p className="text-sm text-navy-300">{example}</p>
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg bg-gradient-to-br ${example.color} shrink-0`}>
+                      <example.icon className="w-5 h-5 text-white" />
+                    </div>
+                    <p className="text-sm text-gray-300 group-hover:text-gray-100 transition-colors">
+                      {example.text}
+                    </p>
+                  </div>
                 </button>
               ))}
             </div>
-
-            {/* Input Area */}
-            <div className="card">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setInputMode(inputMode === 'text' ? 'voice' : 'text')}
-                  className={`p-3 rounded-lg transition-colors ${
-                    inputMode === 'voice'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-navy-800 text-navy-300 hover:text-white'
-                  }`}
-                >
-                  <Mic className="w-5 h-5" />
-                </button>
-
-                <input
-                  type="text"
-                  value={request}
-                  onChange={(e) => setRequest(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSubmitRequest()}
-                  placeholder="e.g., Connect me with gametech VCs in the Bay Area..."
-                  className="flex-1 input-primary"
-                  disabled={isProcessing}
-                />
-
-                <button
-                  onClick={handleSubmitRequest}
-                  disabled={!request.trim() || isProcessing}
-                  className="btn-primary px-6 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isProcessing ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Send className="w-5 h-5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Sponsor Badges */}
-            <div className="flex flex-wrap items-center justify-center gap-6 pt-8 text-sm text-navy-500">
-              <span>Powered by:</span>
-              <span className="text-navy-400">Telnyx</span>
-              <span className="text-navy-400">MemVerge</span>
-              <span className="text-navy-400">ApertureData</span>
-              <span className="text-navy-400">Comet ML</span>
-            </div>
           </div>
-        </main>
-      </div>
 
-      {/* Sidebar Overlay (mobile) */}
-      {showSidebar && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setShowSidebar(false)}
-        />
-      )}
+          {/* Features Section */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-8">
+            {[
+              {
+                title: "Voice AI",
+                description: "Powered by Telnyx",
+                icon: "🎙️"
+              },
+              {
+                title: "Smart Memory",
+                description: "MemVerge CRM",
+                icon: "💾"
+              },
+              {
+                title: "Advanced Search",
+                description: "ApertureData",
+                icon: "🔍"
+              },
+              {
+                title: "LLM Tracking",
+                description: "Comet ML",
+                icon: "📊"
+              }
+            ].map((feature, i) => (
+              <div key={i} className="glass-card p-4 text-center">
+                <div className="text-3xl mb-2">{feature.icon}</div>
+                <h3 className="text-sm font-semibold text-gray-200 mb-1">{feature.title}</h3>
+                <p className="text-xs text-gray-500">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </main>
     </div>
   )
 }
