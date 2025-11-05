@@ -1,239 +1,320 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { Mic, Paperclip, Send, Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Loader2, Mic, MicOff, Paperclip, Send } from 'lucide-react'
 
-interface UnifiedChatInputProps {
-  onSubmit: (text: string) => void
-  onVoiceStart?: () => void
-  onVoiceEnd?: () => void
-  onFileUpload?: (file: File) => void
+export interface UnifiedChatInputProps {
   placeholder?: string
-  isProcessing?: boolean
+  initialValue?: string
+  onSubmit?: (message: string) => Promise<string | void> | string | void
+  onUpload?: (file: File) => Promise<void> | void
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognition
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor
+    webkitSpeechRecognition?: SpeechRecognitionConstructor
+  }
 }
 
 export function UnifiedChatInput({
+  placeholder = 'Ask to connect with...',
+  initialValue = '',
   onSubmit,
-  onVoiceStart,
-  onVoiceEnd,
-  onFileUpload,
-  placeholder = "Ask to connect with...",
-  isProcessing = false,
+  onUpload,
 }: UnifiedChatInputProps) {
-  const [input, setInput] = useState('')
+  const [message, setMessage] = useState(initialValue)
+  const [uploadName, setUploadName] = useState<string | null>(null)
   const [isListening, setIsListening] = useState(false)
-  const [isSpeaking, setIsSpeaking] = useState(false)
-  const recognitionRef = useRef<any>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isAgentSpeaking, setIsAgentSpeaking] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [voiceError, setVoiceError] = useState<string | null>(null)
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const baseVoiceTextRef = useRef(initialValue.trim())
+
+  const hasMessage = message.trim().length > 0
+  const isSphereActive = isListening || isAgentSpeaking
 
   useEffect(() => {
-    // Initialize Web Speech API
-    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition
-      recognitionRef.current = new SpeechRecognition()
-      recognitionRef.current.continuous = true
-      recognitionRef.current.interimResults = true
+    if (textAreaRef.current) {
+      textAreaRef.current.style.height = 'auto'
+      textAreaRef.current.style.height = `${textAreaRef.current.scrollHeight}px`
+    }
+  }, [message])
 
-      recognitionRef.current.onresult = (event: any) => {
-        let interimTranscript = ''
-        let finalTranscript = ''
+  const attachSpeechRecognition = useCallback(() => {
+    if (typeof window === 'undefined') return null
 
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript + ' '
-          } else {
-            interimTranscript += transcript
-          }
-        }
+    const speechRecognitionCtor =
+      (window.SpeechRecognition as SpeechRecognitionConstructor | undefined) ??
+      window.webkitSpeechRecognition
 
-        if (finalTranscript) {
-          setInput(prev => prev + finalTranscript)
+    if (!speechRecognitionCtor) {
+      setVoiceError('Voice capture requires a browser with Speech Recognition support.')
+      return null
+    }
+
+    const recognition = new speechRecognitionCtor()
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.lang = 'en-US'
+
+    recognition.onresult = event => {
+      let interimTranscript = ''
+      let finalTranscript = ''
+
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const result = event.results[i]
+        const transcript = result[0]?.transcript ?? ''
+        if (result.isFinal) {
+          finalTranscript += transcript
+        } else {
+          interimTranscript += transcript
         }
       }
 
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error)
-        setIsListening(false)
-        setIsSpeaking(false)
+      if (finalTranscript.trim()) {
+        const appended = baseVoiceTextRef.current
+          ? `${baseVoiceTextRef.current.trim()} ${finalTranscript.trim()}`.trim()
+          : finalTranscript.trim()
+
+        baseVoiceTextRef.current = appended
+        setMessage(appended)
+        return
       }
 
-      recognitionRef.current.onend = () => {
-        setIsListening(false)
-        setIsSpeaking(false)
-        onVoiceEnd?.()
+      if (interimTranscript.trim()) {
+        const composed = baseVoiceTextRef.current
+          ? `${baseVoiceTextRef.current.trim()} ${interimTranscript.trim()}`.trim()
+          : interimTranscript.trim()
+        setMessage(composed)
       }
     }
 
+    recognition.onerror = event => {
+      setVoiceError(`Voice input error: ${event.error}`)
+      setIsListening(false)
+    }
+
+    recognition.onend = () => {
+      setIsListening(false)
+      setMessage(baseVoiceTextRef.current)
+    }
+
+    return recognition
+  }, [])
+
+  useEffect(() => {
+    recognitionRef.current = attachSpeechRecognition()
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop()
-      }
+      recognitionRef.current?.stop()
     }
-  }, [onVoiceEnd])
+  }, [attachSpeechRecognition])
 
-  const toggleVoice = () => {
+  const startListening = useCallback(() => {
     if (!recognitionRef.current) {
-      alert('Voice input not supported in this browser')
+      recognitionRef.current = attachSpeechRecognition()
+    }
+
+    if (!recognitionRef.current) {
       return
     }
 
-    if (isListening) {
-      recognitionRef.current.stop()
-      setIsListening(false)
-      setIsSpeaking(false)
-      onVoiceEnd?.()
-    } else {
-      recognitionRef.current.start()
-      setIsListening(true)
-      setIsSpeaking(true)
-      onVoiceStart?.()
+    setVoiceError(null)
+    baseVoiceTextRef.current = message.trim()
+    recognitionRef.current.start()
+    setIsListening(true)
+  }, [attachSpeechRecognition, message])
+
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop()
+    setIsListening(false)
+    setMessage(baseVoiceTextRef.current)
+  }, [])
+
+  useEffect(() => {
+    if (!isListening) {
+      baseVoiceTextRef.current = message
     }
+  }, [isListening, message])
+
+  const speakAgentResponse = useCallback((text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return
+    }
+
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    setIsAgentSpeaking(true)
+
+    utterance.onend = () => setIsAgentSpeaking(false)
+    utterance.onerror = () => setIsAgentSpeaking(false)
+
+    window.speechSynthesis.speak(utterance)
+  }, [])
+
+  const handleSubmit = useCallback(async () => {
+    const value = message.trim()
+    if (!value) {
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const response = await onSubmit?.(value)
+      const fallback = 'Understood. I\'ll reach out and keep you posted.'
+      const spokenText = typeof response === 'string' && response.trim() ? response : fallback
+
+      speakAgentResponse(spokenText)
+    } finally {
+      setIsSubmitting(false)
+      setMessage('')
+      baseVoiceTextRef.current = ''
+    }
+  }, [message, onSubmit, speakAgentResponse])
+
+  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    handleSubmit()
   }
 
-  const handleSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault()
-    if (input.trim() && !isProcessing) {
-      onSubmit(input.trim())
-      setInput('')
-    }
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
       handleSubmit()
     }
   }
 
-  const handleFileClick = () => {
-    fileInputRef.current?.click()
-  }
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file && onFileUpload) {
-      onFileUpload(file)
+  const handleMicClick = () => {
+    if (isListening) {
+      stopListening()
+    } else {
+      startListening()
     }
   }
 
+  const handleFileSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (file.type !== 'application/pdf') {
+      setVoiceError('Please upload PDF resumes only.')
+      return
+    }
+
+    setVoiceError(null)
+    setUploadName(file.name)
+    await onUpload?.(file)
+    event.target.value = ''
+  }
+
+  const statusMessage = useMemo(() => {
+    if (voiceError) return voiceError
+    if (isListening) return 'Telnyx agent is listening…'
+    if (isAgentSpeaking) return 'Agent is responding…'
+    if (isSubmitting) return 'Sending your request…'
+    if (uploadName) return `Attached: ${uploadName}`
+    return 'Type, speak, or attach a resume to begin.'
+  }, [isAgentSpeaking, isListening, isSubmitting, uploadName, voiceError])
+
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      {/* Glass Container */}
-      <div className="glass rounded-2xl p-1.5 shadow-2xl">
-        <div className="flex items-center gap-3 p-3">
-          {/* Left: Voice Sphere */}
-          <div className="relative flex-shrink-0">
-            {/* Pulsing rings when active */}
-            {(isListening || isSpeaking) && (
+    <form
+      onSubmit={handleFormSubmit}
+      className="w-full max-w-3xl"
+    >
+      <div className="relative isolate flex w-full items-end gap-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 shadow-subtle-ring backdrop-blur">
+        <div className="relative flex h-12 w-12 items-center justify-center">
+          <span
+            className={`absolute h-12 w-12 rounded-full border border-blue-500/30 ${
+              isSphereActive ? 'animate-sphere-ring opacity-100' : 'opacity-0'
+            } transition-opacity duration-500 ease-out`}
+          />
+          <span
+            className={`sphere-ambient ${
+              isSphereActive ? 'opacity-80' : 'opacity-0'
+            } transition-opacity duration-500 ease-out`}
+          />
+          <span
+            className={`sphere-core h-10 w-10 ${
+              isSphereActive ? 'animate-sphere-pulse' : ''
+            } transition-all duration-500 ease-out`}
+          >
+            <span
+              className={`h-2 w-2 rounded-full bg-white/80 ${
+                isSphereActive ? 'animate-ping' : ''
+              }`}
+            />
+          </span>
+        </div>
+
+        <div className="flex min-h-[3rem] flex-1 flex-col">
+          <textarea
+            ref={textAreaRef}
+            value={message}
+            onChange={event => {
+              setMessage(event.target.value)
+              if (!isListening) {
+                baseVoiceTextRef.current = event.target.value
+              }
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            rows={1}
+            className="w-full resize-none border-0 bg-transparent text-base leading-relaxed text-gray-100 placeholder:text-gray-500 focus:outline-none"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 self-center">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            onChange={handleFileSelection}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-full p-2 text-gray-400 transition hover:bg-white/10 hover:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            aria-label="Upload resume"
+          >
+            <Paperclip className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleMicClick}
+            className={`rounded-full p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+              isListening ? 'bg-blue-500/10 text-blue-300' : 'text-gray-400 hover:bg-white/10 hover:text-gray-100'
+            }`}
+            aria-label={isListening ? 'Stop voice capture' : 'Start voice capture'}
+            aria-pressed={isListening}
+          >
+            {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+          </button>
+          <button
+            type="submit"
+            disabled={!hasMessage || isSubmitting}
+            className="flex h-11 items-center justify-center rounded-xl bg-accent px-4 text-sm font-semibold text-gray-900 transition hover:bg-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A192F] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSubmitting ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
               <>
-                <div className="absolute inset-0 bg-blue-500 rounded-full pulse-ring opacity-75" />
-                <div className="absolute inset-0 bg-blue-500 rounded-full pulse-ring opacity-50" style={{ animationDelay: '0.5s' }} />
+                <span className="hidden sm:inline">Send</span>
+                <Send className="h-5 w-5 sm:ml-2" />
               </>
             )}
-
-            {/* Main Sphere */}
-            <button
-              onClick={toggleVoice}
-              disabled={isProcessing}
-              className={`
-                relative w-12 h-12 rounded-full flex items-center justify-center
-                transition-all duration-300 overflow-hidden
-                ${isListening || isSpeaking
-                  ? 'bg-gradient-to-br from-blue-500 to-cyan-400 pulse-sphere'
-                  : 'bg-white/10 hover:bg-white/20'
-                }
-                disabled:opacity-50 disabled:cursor-not-allowed
-              `}
-            >
-              {/* Gradient overlay for depth */}
-              <div className={`
-                absolute inset-0 bg-gradient-to-br from-white/30 to-transparent
-                ${isListening || isSpeaking ? 'opacity-100' : 'opacity-0'}
-                transition-opacity duration-300
-              `} />
-
-              {/* Icon */}
-              <Mic className={`
-                w-5 h-5 relative z-10
-                ${isListening || isSpeaking ? 'text-white' : 'text-gray-300'}
-                transition-colors duration-300
-              `} />
-            </button>
-          </div>
-
-          {/* Center: Text Input */}
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={placeholder}
-            disabled={isProcessing}
-            className="
-              flex-1 bg-transparent border-none outline-none
-              text-gray-100 placeholder-gray-500
-              text-base
-              disabled:opacity-50
-            "
-          />
-
-          {/* Right: Action Icons */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Paperclip - File Upload */}
-            <button
-              onClick={handleFileClick}
-              disabled={isProcessing}
-              className="
-                p-2.5 rounded-lg
-                bg-white/5 hover:bg-white/10
-                border border-white/10 hover:border-white/20
-                transition-all duration-200
-                disabled:opacity-50 disabled:cursor-not-allowed
-              "
-            >
-              <Paperclip className="w-5 h-5 text-gray-300" />
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-
-            {/* Send Button */}
-            <button
-              onClick={() => handleSubmit()}
-              disabled={!input.trim() || isProcessing}
-              className="
-                p-2.5 rounded-lg
-                bg-blue-500 hover:bg-blue-600
-                disabled:bg-white/5 disabled:opacity-50
-                transition-all duration-200
-                disabled:cursor-not-allowed
-                shadow-lg hover:shadow-blue-500/50
-              "
-            >
-              {isProcessing ? (
-                <Loader2 className="w-5 h-5 text-white animate-spin" />
-              ) : (
-                <Send className="w-5 h-5 text-white" />
-              )}
-            </button>
-          </div>
+          </button>
         </div>
       </div>
 
-      {/* Status indicator */}
-      {isListening && (
-        <div className="mt-3 text-center">
-          <p className="text-sm text-gray-400 flex items-center justify-center gap-2">
-            <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-            Listening...
-          </p>
-        </div>
-      )}
-    </div>
+      <p className="mt-3 text-sm text-gray-400">{statusMessage}</p>
+    </form>
   )
 }
+
+export default UnifiedChatInput
