@@ -1,30 +1,36 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0A192F;
+  --background: #0a192f;
   --background-secondary: #112240;
-  --glass-bg: rgba(255, 255, 255, 0.1);
-  --glass-border: rgba(255, 255, 255, 0.2);
-  --text-primary: #E6F1FF;
-  --text-secondary: #8892B0;
-  --accent: #3B82F6;
-  --accent-glow: rgba(59, 130, 246, 0.3);
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-strong: rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(148, 163, 184, 0.12);
+  --text-primary: #e6f1ff;
+  --text-secondary: #8892b0;
+  --accent: #3b82f6;
+  --accent-strong: #2563eb;
+  --accent-glow: rgba(59, 130, 246, 0.4);
 }
 
-@theme {
-  --color-navy-bg: #0A192F;
-  --color-navy-secondary: #112240;
-  --color-navy-light: #1A2F4A;
-}
-
+html,
 body {
-  background-color: #0A192F;
-  color: #E6F1FF;
+  background-color: var(--background);
+  color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(59, 130, 246, 0.35);
+  color: #fff;
 }
 
 /* Scrollbar styling */
@@ -46,118 +52,36 @@ body {
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* Glassmorphism Classes */
-.glass {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-}
-
-.glass-card {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 16px;
-  transition: all 0.3s ease;
-}
-
-.glass-card:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.25);
-  transform: translateY(-2px);
-}
-
-/* Custom animations */
-@keyframes pulse-sphere {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 40px rgba(59, 130, 246, 0.8);
-  }
-}
-
-@keyframes pulse-ring {
-  0% {
-    transform: scale(0.95);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1.8);
-    opacity: 0;
-  }
-}
-
-.pulse-sphere {
-  animation: pulse-sphere 2s ease-in-out infinite;
-}
-
-.pulse-ring {
-  animation: pulse-ring 1.5s ease-out infinite;
-}
-
-/* Button styles */
-.btn-primary {
-  background: #3B82F6;
-  color: white;
-  font-weight: 500;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.75rem;
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-}
-
-.btn-primary:hover {
-  background: #2563EB;
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-}
-
-.btn-glass {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(12px);
-  color: #E6F1FF;
-  font-weight: 500;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.2s ease;
-}
-
-.btn-glass:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-/* Input styles */
-.input-glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.75rem;
-  padding: 0.75rem 1rem;
-  color: #E6F1FF;
-  transition: all 0.2s ease;
-}
-
-.input-glass::placeholder {
-  color: #8892B0;
-}
-
-.input-glass:focus {
-  outline: none;
-  border-color: rgba(59, 130, 246, 0.5);
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
-}
-
-/* Gradient text */
 .gradient-text {
-  background: linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(14, 165, 233, 0.9) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.sphere-core {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.85), rgba(59, 130, 246, 0.25) 55%, rgba(14, 165, 233, 0.55));
+  box-shadow: 0 12px 40px rgba(59, 130, 246, 0.35);
+}
+
+.sphere-core::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.sphere-ambient {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.55), transparent 70%);
+  opacity: 0.55;
+  filter: blur(12px);
 }
