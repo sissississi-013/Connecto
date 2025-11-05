@@ -23,6 +23,7 @@ export interface UserProfile {
     customTemplate?: string
     calendlyLink?: string
     googleCalendarEnabled?: boolean
+    lastSearchFilters?: any
   }
   createdAt: string
   updatedAt: string
